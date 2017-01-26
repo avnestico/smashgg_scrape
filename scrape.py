@@ -19,7 +19,6 @@ def dump_tournament(tournament, event):
     tournament_url = "https://api.smash.gg/tournament/" + tournament
     t = requests.get(tournament_url)
     tournament_data = t.json()
-    print(tournament_data)
     tournament_name = tournament_data["entities"]["tournament"]["name"]
     timezone = tournament_data["entities"]["tournament"]["timezone"]
 
@@ -27,8 +26,7 @@ def dump_tournament(tournament, event):
     event_url = "https://api.smash.gg/tournament/" + tournament + "/event/" + event + "-singles"
     e = requests.get(event_url)
     event_data = e.json()
-    id = event_data["entities"]["event"]["id"]
-    print("ID:", id)
+    event_id = event_data["entities"]["event"]["id"]
 
     timestamp = event_data["entities"]["event"]["endAt"]
     if not timestamp:
@@ -38,7 +36,8 @@ def dump_tournament(tournament, event):
     date = datetime.fromtimestamp(timestamp, pytz.timezone(timezone)).date()
 
     ## Get standings
-    standing_url = event_url + "/standings"
+    standing_string = "/standings?expand[]=attendee&per_page=100"
+    standing_url = event_url + standing_string
     s = requests.get(standing_url)
     s_data = s.json()
     count = s_data["total_count"]
@@ -50,17 +49,14 @@ def dump_tournament(tournament, event):
     attendees = {}
 
     while len(attendees) < count:
-        before = len(attendees)
         for i in range(pages):
             page = i + 1
-            # Attendees API scrape is inconsistent so we need to add a random string to the end of the url
-            # so we can fetch the same page multiple times if necessary
-            player_url = "https://api.smash.gg/tournament/" + tournament + "/attendees?per_page=100&filter={\"eventIds\":" +\
-                         str(id) + "}&page=" + str(page) + "&a=" + str(randint(0,999))
-            print(player_url)
-            p = requests.get(player_url)
-            p_data = p.json()
-            players = p_data["items"]["entities"]["attendee"]
+            if page != 1:
+                standing_url = event_url + standing_string + "&page=" + str(page)
+                s = requests.get(standing_url)
+                s_data = s.json()
+
+            players = s_data["items"]["entities"]["attendee"]
 
             # Find each player's placement in the given game
             for player in range(len(players)):
@@ -68,14 +64,8 @@ def dump_tournament(tournament, event):
                 name = players[player]["player"]["gamerTag"]
                 entered_events = players[player]["entrants"]
                 for event in range(len(entered_events)):
-                    if entered_events[event]["eventId"] == id:
+                    if entered_events[event]["eventId"] == event_id:
                         attendees[player_id] = {"name": name, "place": entered_events[event]["finalPlacement"]}
-
-        # If whole loop finds no new attendees, assume that they cannot be found from attendees page
-        after = len(attendees)
-        print("Entrants found:", after)
-        if after == before:
-            break
 
     tournament_dict = {tournament: {"name": tournament_name, "date": str(date), "attendees": attendees}}
     return tournament_dict
@@ -147,7 +137,8 @@ def db_write(game, tournament):
 if __name__ == "__main__":
     melee_events = ["olympus",
                     "apollo",
-                    "shots-fired-2"]
+                    "shots-fired-2",
+                    "genesis-3"]
     json_write("melee", melee_events)
     print_date(json_open("melee"))
     """
