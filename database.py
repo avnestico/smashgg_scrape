@@ -8,6 +8,7 @@ from psycopg2.extensions import AsIs
 def db_connect():
     """
     Write tournament data to postgres database
+    Requires env variable DATABASE_URL of the form: postgres://<username>:<password>@<IP address>:<port>/<db name>
     :return cur: database cursor
     """
     try:
