@@ -9,12 +9,11 @@ def db_connect():
     """
     Write tournament data to postgres database
     Requires env variable DATABASE_URL of the form: postgres://<username>:<password>@<IP address>:<port>/<db name>
-    :return cur: database cursor
+    :return conn, cur: database connection and cursor
     """
     try:
         parse.uses_netloc.append("postgres")
         url = parse.urlparse(os.environ["DATABASE_URL"])
-        print(url)
 
         conn = psycopg2.connect(
             database=url.path[1:],
@@ -26,9 +25,10 @@ def db_connect():
         cur = conn.cursor()
     except:
         print("I am unable to connect to the database.")
+        conn = None
         cur = None
 
-    return cur
+    return conn, cur
 
 
 def db_create(cur):
@@ -37,9 +37,10 @@ def db_create(cur):
     :param cur: database cursor
     :return:
     """
-    commands = (
+    games = ["melee", "wii_u", "smash_64"]
+    commands = {"tournaments":  # %s = <game>_tournaments
         """
-        CREATE TABLE IF NOT EXISTS melee_tournaments (
+        CREATE TABLE IF NOT EXISTS "%s" (
             slug VARCHAR(255) PRIMARY KEY,
             name VARCHAR(255) NOT NULL,
             date DATE NOT NULL,
@@ -47,41 +48,32 @@ def db_create(cur):
             attendees JSONB
         )
         """,
+        "players":  # %s = <game>_players
         """
-        CREATE TABLE IF NOT EXISTS melee_players (
+        CREATE TABLE IF NOT EXISTS "%s" (
             id INT PRIMARY KEY,
             name VARCHAR(255) NOT NULL,
             tournaments JSONB
         )
         """,
+        "leaders":  # %s = <game>_leaders
         """
-        CREATE TABLE IF NOT EXISTS wii_u_tournaments (
-            LIKE melee_tournaments
-        )
-        """,
-        """
-        CREATE TABLE IF NOT EXISTS wii_u_players (
-            LIKE melee_players
-        )
-        """,
-        """
-        CREATE TABLE IF NOT EXISTS smash_64_tournaments (
-            LIKE melee_tournaments
-        )
-        """,
-        """
-        CREATE TABLE IF NOT EXISTS smash_64_players (
-            LIKE melee_players
+        CREATE TABLE IF NOT EXISTS "%s" (
+            game VARCHAR(15) NOT NULL,
+            date DATE,
+            leaders JSONB
         )
         """
-    )
+    }
 
-    for command in commands:
-        try:
-            cur.execute(command)
-            print("Successfully executed" + command)
-        except:
-            print("could not execute" + command)
+    for key in commands:
+        for game in games:
+            table_name = game + "_" + key
+            try:
+                cur.execute(commands[key] % table_name)
+                print("Successfully created table " + table_name)
+            except:
+                print("could not create table " + table_name)
 
 
 def db_check(cur):
@@ -98,7 +90,7 @@ def db_check(cur):
         print("I can't SELECT * FROM pg_catalog.pg_tables")
 
 
-def db_write(cur, game, tournament):
+def db_write_player(cur, game, id, name):
     """
     Write tournament data to postgres database
     :param cur: database cursor
@@ -107,8 +99,19 @@ def db_write(cur, game, tournament):
     :return: None
     """
 
+    table_name = to_under(game) + "_players"
     try:
-        cur.execute("select relname from pg_class where relkind='r' and relname !~ '^(pg_|sql_)';")
+        query = """INSERT INTO "%s" (id, name) VALUES (%%s, %%s)""" % table_name
+        cur.execute(query, (id, name))
         print(cur.fetchall())
     except:
-        print("I can't SELECT * FROM pg_catalog.pg_tables")
+        print("I can't INSERT %s into table %s_players" % name, game)
+
+
+def to_under(game):
+    """
+    Replace dashes with underscores
+    :param game:
+    :return game:
+    """
+    return game.replace("-", "_")

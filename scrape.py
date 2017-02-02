@@ -65,9 +65,10 @@ def dump_tournament(tournament, event):
                 entered_events = players[player]["entrants"]
                 for event in range(len(entered_events)):
                     if entered_events[event]["eventId"] == event_id:
-                        attendees[player_id] = {"name": name, "place": entered_events[event]["finalPlacement"]}
+                        attendees[int(player_id)] = {int(entered_events[event]["finalPlacement"])}
+                # db.db_write_player
 
-    tournament_dict = {tournament: {"name": tournament_name, "date": str(date), "attendees": attendees}}
+    tournament_dict = {tournament: {"name": tournament_name, "date": str(date), "attendees": attendees}}  # points
     return tournament_dict
 
 
@@ -129,6 +130,9 @@ if __name__ == "__main__":
     json_write("melee", melee_events)
     print_date(json_open("melee"))
     """
-    cur = db.db_connect()
+    conn, cur = db.db_connect()
     db.db_create(cur)
     db.db_check(cur)
+    #conn.commit()
+    cur.close()
+    conn.close()
