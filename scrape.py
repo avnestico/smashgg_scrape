@@ -1,11 +1,11 @@
 import json
 import math
 from datetime import datetime
-from random import randint
 
-import psycopg2 as psycopg2
 import pytz as pytz
 import requests
+
+import database as db
 
 
 def dump_tournament(tournament, event):
@@ -121,25 +121,14 @@ def print_date(dict, tournament_list=None):
         print(name, date, sep=": ")
 
 
-def db_write(game, tournament):
-    """
-    Write tournament data to postgres database
-    :param game: game name
-    :param tournament: tournament to write
-    :return: None
-    """
-    try:
-        conn = psycopg2.connect("dbname=postgres user=postgres password=postgres")
-    except:
-        print("I am unable to connect to the database.")
-
-
 if __name__ == "__main__":
-    melee_events = ["olympus",
+    """melee_events = ["olympus",
                     "apollo",
                     "shots-fired-2",
                     "genesis-3"]
     json_write("melee", melee_events)
     print_date(json_open("melee"))
     """
-    db_write("melee", None)"""
+    cur = db.db_connect()
+    db.db_create(cur)
+    db.db_check(cur)
